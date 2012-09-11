@@ -59,8 +59,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
 
     public enum MACHINE_ACTION {
         SHUTDOWN,
-        REVERT_AND_SHUTDOWN,
-        REVERT_AND_START,
+        REVERT,
         RESET,
         NOTHING
     }
