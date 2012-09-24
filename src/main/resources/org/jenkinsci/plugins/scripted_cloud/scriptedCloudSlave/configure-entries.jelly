@@ -19,14 +19,18 @@
     <f:entry title="${%Virtual Machine Name}" help="/plugin/scripted-cloud/slave-vmName.html">
         <f:textbox field="vmName"></f:textbox>
     </f:entry>
-    <f:entry title="${%Virtual Machine Platform}" help="/plugin/scripted-cloud/slave-vmName.html">
+    <f:entry title="${%Virtual Machine Platform}" help="/plugin/scripted-cloud/slave-vmPlatform.html">
         <f:textbox field="vmPlatform"></f:textbox>
     </f:entry>
-    <f:entry title="${%Virtual Machine Group}" help="/plugin/scripted-cloud/slave-vmName.html">
+    <f:entry title="${%Virtual Machine Group}" help="/plugin/scripted-cloud/slave-vmGroup.html">
         <f:textbox field="vmGroup"></f:textbox>
     </f:entry>
     <f:entry title="${%Snapshot Name}" help="/plugin/scripted-cloud/slave-snapName.html">
-        <f:textbox field="snapName"></f:textbox>
+        <f:textbox field="snapName"></f:textbox> 
+    </f:entry>
+
+    <f:entry title="${%Extra Params}" help="/plugin/scripted-cloud/slave-vmExtraParams.html">
+        <f:textbox field="vmExtraParams"></f:textbox>
     </f:entry>
 
     <f:entry title="${%Remote FS root}" field="remoteFS">
@@ -37,13 +41,16 @@
         <f:textbox/>
     </f:entry>
 
+
     <f:slave-mode name="mode" node="${it}"/>
 
-    <f:entry title="${%Force Launch}" description="${%Start VM if its not running already.}" help="/plugin/scripted-cloud/slave-forceLaunch.html">
+    <f:entry title="${%Force Launch}" description="${%Start VM if its not running already.}" 
+help="/plugin/scripted-cloud/slave-forceLaunch.html">
         <f:checkbox field="forceLaunch"/>
     </f:entry>
     
-    <f:entry title="${%Disconnect After Limited Builds}" help="/plugin/vsphere-cloud/slave-LimitedTestRunCount.html" description="${%Number of builds to allow before disconnecting the agent; use 0 for NEVER.}">
+    <f:entry title="${%Disconnect After Limited Builds}" help="/plugin/vsphere-cloud/slave-LimitedTestRunCount.html" 
+description="${%Number of builds to allow before disconnecting the agent; use 0 for NEVER.}">
        <f:textbox default="0" field="LimitedTestRunCount"/>
     </f:entry>
     
@@ -91,7 +98,8 @@
         </f:dropdownList>
     </j:if>
 
-    <f:entry title="${%What to do when the slave is disconnected}" field="idleOption" name="idleOption" help="/plugin/scripted-cloud/slave-idleOption.html">
+    <f:entry title="${%What to do when the slave is disconnected}" field="idleOption" name="idleOption" 
+help="/plugin/scripted-cloud/slave-idleOption.html">
         <select class="setting-input" name="idleOption">
             <j:forEach var="t" items="${descriptor.getIdleOptions()}" varStatus="loop">
                 <f:option value="${t}" selected="${t==instance.idleOption}">${t}</f:option>

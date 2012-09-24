@@ -12,6 +12,7 @@ import hudson.model.Hudson;
 import hudson.slaves.Cloud;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.util.Calendar;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -49,6 +50,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     private String vsDescription;
     private String vmName;
     private String vmPlatform;
+    private String vmExtraParams;
     private String vmGroup;
     private String snapName;
     private Boolean isStarting = Boolean.FALSE;
@@ -56,6 +58,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     private MACHINE_ACTION idleAction;
     private scriptedCloud vs = null;
     private int LimitedTestRunCount = 0;
+    private Boolean disconnectCustomAction = Boolean.FALSE;
 
     public enum MACHINE_ACTION {
         SHUTDOWN,
@@ -68,7 +71,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     public scriptedCloudLauncher(ComputerLauncher delegate,
             String vsDescription
             , String vmName, String vmPlatform, String vmGroup
-            , String snapName
+            , String snapName, String extraParams
             , Boolean forceLaunch
             , String idleOption
             ,String LimitedTestRunCount
@@ -79,6 +82,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
         this.vsDescription = vsDescription;
         this.vmName = vmName;
         this.vmPlatform = vmPlatform;
+        this.vmExtraParams = extraParams;
         this.vmGroup = vmGroup;
         this.snapName = snapName;
         this.isStarting = Boolean.FALSE;
@@ -119,6 +123,11 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     }
 
     @Override
+    public boolean isLaunchSupported() {
+        return delegate.isLaunchSupported();
+    }
+
+    @Override
     public void launch(SlaveComputer slaveComputer, TaskListener listener)
     throws IOException, InterruptedException {
     	scriptedCloud.Log("launch enter:" + vs.getStartScriptFile());
@@ -154,6 +163,7 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     		envMap.put("SCVM_NAME", this.vmName);
     		envMap.put("SCVM_SNAPNAME", this.snapName);
     		envMap.put("SCVM_PLATFORM", this.vmPlatform);
+    		envMap.put("SCVM_EXTRAPARAMS", this.vmExtraParams);    		
     		envMap.put("SCVM_GROUP", this.vmGroup);
     		if (forceLaunch == Boolean.TRUE) {
     			envMap.put("SCVM_FORCESTART", "yes");
@@ -169,7 +179,28 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     		if (r!=0)
     			throw new AbortException("The script failed:" + r + ", " + vs.getStartScriptFile());
     		scriptedCloud.Log("script done:" + vs.getStartScriptFile());
-    		//delegate.launch(slaveComputer, listener);
+    		
+    		//satti - enabling this:    		
+            if (delegate.isLaunchSupported()) {
+                // Delegate is going to do launch.
+            	scriptedCloud.Log("calling inbuilt launch");
+                //delegate.launch(slaveComputer, listener);
+            }
+            else
+            	scriptedCloud.Log("delegate launch not supported");
+            
+            try {
+            	scriptedCloud.Log("delegate:" + delegate);
+            	delegate.launch(slaveComputer, listener);
+            }
+            catch (SocketException e) {
+            	scriptedCloud.Log("Socket Exception in delegate.launch()");
+            }
+            catch (IOException e) {
+            	scriptedCloud.Log("IO Exception in delegate.launch()");
+            }
+            
+            
     		scriptedCloud.Log("launch exit:"+ vs.getStartScriptFile());
     	} catch (Exception e) {    		
     		scriptedCloud.Log("launch error:"+ e);
@@ -190,15 +221,17 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     }
 
     public void stopSlave(scriptedCloudSlaveComputer slaveComputer, boolean forced) {
-    	scriptedCloud.Log("stopSlave processing called");
+    	scriptedCloud.Log("stopSlave processing called: forced=" + forced);
     	if (forced == false && idleAction == MACHINE_ACTION.NOTHING) {
     		scriptedCloud.Log("Do nothing for this slave");
     		return;
     	}
+    	disconnectCustomAction = Boolean.TRUE;
     	slaveComputer.disconnect();
     	scriptedCloud.Log("disconnected slave.");
     }
 
+    
 	public synchronized void runScript(SlaveComputer slaveComputer
     		, String scriptToRun, HashMap envMap) {
     	scriptedCloud.Log("runScript:" + scriptToRun);        	
@@ -234,27 +267,42 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     public synchronized void afterDisconnect(SlaveComputer slaveComputer,
             TaskListener taskListener) {
     	scriptedCloud.Log("afterDisconnect ...., isDisconnecting=" + isDisconnecting);
+    	//delegate.afterDisconnect(slaveComputer, taskListener);
+    	if (disconnectCustomAction == Boolean.FALSE) {
+    		scriptedCloud.Log("Not called from stopslave .. skipping shutdown");
+    		//delegate.afterDisconnect(slaveComputer, taskListener);
+    		return;
+    	}
+    	disconnectCustomAction = Boolean.FALSE;
+    	if (idleAction == MACHINE_ACTION.NOTHING) {
+    		scriptedCloud.Log("Action 'nothing' set .. skipping shutdown");
+    		//delegate.afterDisconnect(slaveComputer, taskListener);
+    		return;
+    	}
         if (isDisconnecting == Boolean.TRUE) {
         	scriptedCloud.Log(slaveComputer, taskListener, "Already disconnecting on a separate thread");
+        	//delegate.afterDisconnect(slaveComputer, taskListener);
             return;
         }
         
         if (slaveComputer.isTemporarilyOffline()) {
-        	scriptedCloud.Log(slaveComputer, taskListener, "Not disconnecting VM because it's not accepting tasks"); 
+        	scriptedCloud.Log(slaveComputer, taskListener, "Not disconnecting VM because it's not accepting tasks");
+        	//delegate.afterDisconnect(slaveComputer, taskListener);
            return;
         }
             
         try {
             isDisconnecting = Boolean.TRUE;
-            scriptedCloud.Log(slaveComputer, taskListener, "Running disconnect procedure...");
-            delegate.afterDisconnect(slaveComputer, taskListener);
+            scriptedCloud.Log(slaveComputer, taskListener, "Running disconnect procedure...");            
             scriptedCloud.Log(slaveComputer, taskListener, "Shutting down Virtual Machine...");
+            
             //*********************************
             HashMap envMap = new HashMap();
     		envMap.put("SCVM_NAME", this.vmName);
     		envMap.put("SCVM_SNAPNAME", this.snapName);
     		envMap.put("SCVM_PLATFORM", this.vmPlatform);
     		envMap.put("SCVM_GROUP", this.vmGroup);
+    		envMap.put("SCVM_EXTRAPARAMS", this.vmExtraParams);
         	if (idleAction == MACHINE_ACTION.SHUTDOWN) {
     	    	envMap.put("SCVM_ACTION","stop");
         	}
@@ -282,7 +330,9 @@ public class scriptedCloudLauncher extends ComputerLauncher {
                     .stdout(NULL).pwd(root).join();
             if (r!=0)
                 throw new AbortException("The script failed:" + r);            
-            scriptedCloud.Log("script done:" + scriptToRun);            
+            scriptedCloud.Log("script done:" + scriptToRun);
+            scriptedCloud.Log("delegate afterdisconnect");
+            delegate.afterDisconnect(slaveComputer, taskListener);
             //**********************************
         } catch (Throwable t) {
         	scriptedCloud.Log(slaveComputer, taskListener, "Got an exception");

@@ -60,6 +60,7 @@ public class scriptedCloudSlave extends Slave {
     private final String vmName;
     private final String snapName;
     private final String vmPlatform;
+    private final String vmExtraParams;
     private final String vmGroup;
     private final String idleOption;
     private final Boolean forceLaunch;
@@ -76,6 +77,7 @@ public class scriptedCloudSlave extends Slave {
             List<? extends NodeProperty<?>> nodeProperties,
             String vsDescription 
             ,String vmName, String vmPlatform, String vmGroup
+            ,String vmExtraParams
             ,Boolean forceLaunch,
             String snapName, String idleOption
             ,String LimitedTestRunCount
@@ -84,7 +86,7 @@ public class scriptedCloudSlave extends Slave {
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString,
         		
                 new scriptedCloudLauncher(delegateLauncher, vsDescription
-                		,vmName, vmPlatform, vmGroup, snapName
+                		,vmName, vmPlatform, vmGroup, snapName, vmExtraParams
                 		,forceLaunch, 
                 		idleOption, LimitedTestRunCount)
         
@@ -92,6 +94,7 @@ public class scriptedCloudSlave extends Slave {
         this.vsDescription = vsDescription;
         this.vmName = vmName;
         this.vmPlatform = vmPlatform;
+        this.vmExtraParams = vmExtraParams;
         this.vmGroup = vmGroup;
         this.snapName = snapName;
         this.idleOption = idleOption;
@@ -107,6 +110,10 @@ public class scriptedCloudSlave extends Slave {
 
     public String getVmPlatform() {
         return vmPlatform;
+    }
+
+    public String getVmExtraParams() {
+        return vmExtraParams;
     }
 
     public String getVmGroup() {
@@ -135,7 +142,7 @@ public class scriptedCloudSlave extends Slave {
 
     @Override
     public Computer createComputer() {
-    	scriptedCloud.Log("createComputer\n");
+    	scriptedCloud.Log("createComputer " + name + "\n");
         return new scriptedCloudSlaveComputer(this);
     }
         

@@ -51,7 +51,7 @@ public final class scriptedCloudRunListener extends RunListener<Run> {
 
     @Override
     public void onFinalized(Run r) {
-        super.onFinalized(r);
+        super.onFinalized(r);    	
         if (LimitedRuns.contains(r)) {
             LimitedRuns.remove(r);
             Node node = r.getExecutor().getOwner().getNode();
@@ -60,8 +60,7 @@ public final class scriptedCloudRunListener extends RunListener<Run> {
                 s.EndLimitedTestRun(r);
             }                    
         }
-    }
-        
+    }   
 }
 
 

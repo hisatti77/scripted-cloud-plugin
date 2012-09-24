@@ -2,10 +2,12 @@
     <f:entry title="${%Name to use for this scripted Cloud}" help="/plugin/scripted-cloud/vsDescription.html">
         <f:textbox field="vsDescription" />
     </f:entry>
-    <f:entry title="${%Batch or a shell script files to start machine}">
+    <f:entry title="${%Batch or a shell script files to start machine}"
+    		help="/plugin/scripted-cloud/slave-startscript.html">
         <f:textbox field="startScriptFile"></f:textbox>
     </f:entry>
-    <f:entry title="${%Batch or a shell script files to stop machine}">
+    <f:entry title="${%Batch or a shell script files to stop machine}"
+    	help="/plugin/scripted-cloud/slave-stopscript.html">>
         <f:textbox field="stopScriptFile"></f:textbox>
     </f:entry>
 </j:jelly>
