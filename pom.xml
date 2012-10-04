@@ -8,7 +8,7 @@
 
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>scripted-cloud-plugin</artifactId>
-    <version>0.11</version>
+    <version>0.12-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>scripted Cloud Plugin</name>
     <description>Integrates Jenkins with a scripted server to use virtual machines as slaved</description>
