@@ -1,6 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" 
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
@@ -10,7 +8,7 @@
 
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>scripted-cloud-plugin</artifactId>
-    <version>0.11-SNAPSHOT</version>
+    <version>0.11</version>
     <packaging>hpi</packaging>
     <name>scripted Cloud Plugin</name>
     <description>Integrates Jenkins with a scripted server to use virtual machines as slaved</description>
@@ -92,7 +90,7 @@
 	    <plugin>
 		    <groupId>org.codehaus.mojo</groupId>
 		    <artifactId>findbugs-maven-plugin</artifactId>
-		    <version>2.4.1-SNAPSHOT</version>
+		    <version>2.4.1</version>
 		    <configuration>
 			     <xmlOutput>true</xmlOutput>
 			     <!-- Optional directory to put findbugs xdoc xml report -->
