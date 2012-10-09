@@ -17,11 +17,13 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     public enum STATE {
     	INITIAL, STARTING, STOPPING, STARTED, STOPPED
     }
+    public STATE state;
     
     public scriptedCloudSlaveComputer(Slave slave) {
         super(slave);
     	isStarting = Boolean.FALSE;
     	isDisconnecting = Boolean.FALSE;
+    	state = STATE.INITIAL;
     }
 
     @Override
