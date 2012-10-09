@@ -49,10 +49,12 @@ help="/plugin/scripted-cloud/slave-forceLaunch.html">
         <f:checkbox field="forceLaunch"/>
     </f:entry>
     
+    <!--
     <f:entry title="${%Disconnect After Limited Builds}" help="/plugin/vsphere-cloud/slave-LimitedTestRunCount.html" 
 description="${%Number of builds to allow before disconnecting the agent; use 0 for NEVER.}">
        <f:textbox default="0" field="LimitedTestRunCount"/>
     </f:entry>
+    -->
     
     <f:dropdownList name="slave.delegateLauncher" title="${%Slave launch method}"
                     help="${descriptor.getHelpFile('launcher')}">

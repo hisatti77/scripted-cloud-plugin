@@ -63,7 +63,7 @@ public class scriptedCloudSlave extends Slave {
     private final String vmExtraParams;
     private final String vmGroup;
     private final String idleOption;
-    private final Boolean forceLaunch;
+    private final Boolean forceLaunch;    
     
     private Integer LimitedTestRunCount = 0; // If limited test runs enabled, the number of tests to limit the slave too.
     private transient Integer NumberOfLimitedTestRuns = 0;
@@ -80,7 +80,7 @@ public class scriptedCloudSlave extends Slave {
             ,String vmExtraParams
             ,Boolean forceLaunch,
             String snapName, String idleOption
-            ,String LimitedTestRunCount
+            /*,String LimitedTestRunCount*/
             )
             throws FormException, IOException {
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString,
@@ -88,7 +88,7 @@ public class scriptedCloudSlave extends Slave {
                 new scriptedCloudLauncher(delegateLauncher, vsDescription
                 		,vmName, vmPlatform, vmGroup, snapName, vmExtraParams
                 		,forceLaunch, 
-                		idleOption, LimitedTestRunCount)
+                		idleOption /*, LimitedTestRunCount*/)
         
         		,retentionStrategy, nodeProperties);
         this.vsDescription = vsDescription;
@@ -99,7 +99,7 @@ public class scriptedCloudSlave extends Slave {
         this.snapName = snapName;
         this.idleOption = idleOption;
         this.forceLaunch = forceLaunch;
-        this.LimitedTestRunCount = Util.tryParseNumber(LimitedTestRunCount, 0).intValue();        
+        this.LimitedTestRunCount = 0; //Util.tryParseNumber(LimitedTestRunCount, 0).intValue();        
         this.NumberOfLimitedTestRuns = 0;
         scriptedCloud.Log("<br>scriptedCloudSlave called\n");
     }
@@ -147,59 +147,16 @@ public class scriptedCloudSlave extends Slave {
     }
         
     public boolean StartLimitedTestRun(Run r, TaskListener listener) {
-        boolean ret = false;
-        boolean DoUpdates = false;
-        CheckLimitedTestRunValues();
-        if (LimitedTestRunCount > 0) {
-            DoUpdates = true;
-            if (NumberOfLimitedTestRuns < LimitedTestRunCount) {
-                ret = true;
-            }
-        }
-        else
-            ret = true;
-        
-        if (DoUpdates) {
-            if (ret) {
-                NumberOfLimitedTestRuns++;
-                scriptedCloud.Log(listener, "Starting limited count build: %d", NumberOfLimitedTestRuns);
-            }
-            else {
-            	scriptedCloud.Log(listener, "Terminating build due to limited build count: %d", LimitedTestRunCount);
-                r.getExecutor().interrupt(Result.ABORTED);
-            }
-        }
-        
-        return ret;
+        scriptedCloudLauncher c = (scriptedCloudLauncher)getLauncher();
+        c.enableLaunch();        
+        return true;
     }
 
-    private void CheckLimitedTestRunValues() {
-        if (NumberOfLimitedTestRuns == null)
-            NumberOfLimitedTestRuns = 0;
-        if (LimitedTestRunCount == null)
-            LimitedTestRunCount = 0;
-    }      
     
     public boolean EndLimitedTestRun(Run r) {
         boolean ret = true;
         boolean forced = false;
         scriptedCloud.Log("EndLimitedTestRun"); 
-        CheckLimitedTestRunValues();
-        if (LimitedTestRunCount > 0) {        	
-            if (NumberOfLimitedTestRuns >= LimitedTestRunCount) {
-                ret = false;
-                forced = true;
-                NumberOfLimitedTestRuns = 0;   
-                //r.getExecutor().getOwner().disconnect();
-                String Node = "NA";
-                if ((r.getExecutor() != null) && (r.getExecutor().getOwner() != null)) {
-                    Node = r.getExecutor().getOwner().getName();
-                }
-                scriptedCloud.Log("Disconnecting the slave agent on %s due to limited build threshold", Node);
-            }            
-        }
-        else
-            ret = true;
         scriptedCloudLauncher c = (scriptedCloudLauncher)getLauncher();
         c.stopSlave((scriptedCloudSlaveComputer)r.getExecutor().getOwner(), forced);
         return ret;
@@ -231,7 +188,7 @@ public class scriptedCloudSlave extends Slave {
             //scriptedCloud vsC = vsL.findOurVsInstance();
             //if (!vsC.markVMOnline(c.getDisplayName(), vsL.getVmName()))
             //    throw new AbortException("The scripted cloud will not allow this slave to start at this time.");
-        }          
+        }                
     }
 
     @Extension
