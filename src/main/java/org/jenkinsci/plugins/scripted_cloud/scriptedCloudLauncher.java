@@ -45,14 +45,18 @@ import org.kohsuke.stapler.DataBoundConstructor;
  */
 public class scriptedCloudLauncher extends ComputerLauncher {
 
-    private ComputerLauncher delegate;
-    private Boolean forceLaunch;
+	public enum MACHINE_ACTION {
+        SHUTDOWN,
+        REVERT,
+        RESET,
+        NOTHING
+    }
+    
+
     private String vsDescription;
     private String vmName;
-    private String vmPlatform;
-    private String vmExtraParams;
-    private String vmGroup;
-    private String snapName;
+    
+    private ComputerLauncher delegate;
     //private Boolean isStarting = Boolean.FALSE;
     //private Boolean isDisconnecting = Boolean.FALSE;
     private MACHINE_ACTION idleAction;
@@ -62,43 +66,17 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     
     private Boolean enableLaunch = Boolean.FALSE;
 
-    public enum MACHINE_ACTION {
-        SHUTDOWN,
-        REVERT,
-        RESET,
-        NOTHING
-    }
 
     @DataBoundConstructor
-    public scriptedCloudLauncher(ComputerLauncher delegate,
-            String vsDescription
-            , String vmName, String vmPlatform, String vmGroup
-            , String snapName, String extraParams
-            , Boolean forceLaunch
-            , String idleOption
-            /*, String LimitedTestRunCount */
-            ) {
+    public scriptedCloudLauncher(ComputerLauncher delegate
+    		, String vsDescription, String vmName) {
         super();
         this.delegate = delegate;
-        this.forceLaunch = forceLaunch;
+        //this.isStarting = Boolean.FALSE;
+        this.LimitedTestRunCount = 0; //Util.tryParseNumber(LimitedTestRunCount, 0).intValue();
         this.vsDescription = vsDescription;
         this.vmName = vmName;
-        this.vmPlatform = vmPlatform;
-        this.vmExtraParams = extraParams;
-        this.vmGroup = vmGroup;
-        this.snapName = snapName;
-        //this.isStarting = Boolean.FALSE;
-        this.enableLaunch = Boolean.FALSE;
-        if ("Shutdown".equals(idleOption)) {
-            idleAction = MACHINE_ACTION.SHUTDOWN;
-        } else if ("Shutdown and Revert".equals(idleOption)) {
-            idleAction = MACHINE_ACTION.REVERT;
-        } else if ("Reset".equals(idleOption)) {
-            idleAction = MACHINE_ACTION.RESET;            
-        } else {
-            idleAction = MACHINE_ACTION.NOTHING;
-        }
-        this.LimitedTestRunCount = 0; //Util.tryParseNumber(LimitedTestRunCount, 0).intValue();
+
         vs = findOurVsInstance();
     }
     
@@ -141,27 +119,28 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     public void launch(SlaveComputer slaveComputer, TaskListener listener)
     throws IOException, InterruptedException {
     	Logger LOG = Logger.getLogger("launch");
-    	LOG.info("launch enter:" + vs.getStartScriptFile());
-    	scriptedCloud.Log("launch enter:" + vs.getStartScriptFile());
-    	scriptedCloud.Log("launch enter:slaveComputer:" + slaveComputer);
     	scriptedCloudSlaveComputer s = (scriptedCloudSlaveComputer)slaveComputer;
+		scriptedCloud.Log(s, listener, "Launching");
+		scriptedCloud.Log(s, listener, "slave state:" + s.getState());
+    	
+		if (s.isTemporarilyOffline()) {
+			scriptedCloud.Log(slaveComputer, listener, "Not launching VM because it's not accepting tasks; temporarily offline"); 
+			return;
+		}
+
+		// Slaves that take a while to start up make get multiple launch
+		// requests from Jenkins.  
+		if (s.stopped() || s.initialized()) {
+			scriptedCloud.Log(slaveComputer, listener, "its ready to launch");
+		}
+		else
+		{
+			scriptedCloud.Log(slaveComputer, listener, "Slave is already being launched");
+			return;
+		}
     	try {
-    		if (s.isTemporarilyOffline()) {
-    			scriptedCloud.Log(slaveComputer, listener, "Not launching VM because it's not accepting tasks; temporarily offline"); 
-    			return;
-    		}
+    		s.setStarting();
 
-    		// Slaves that take a while to start up make get multiple launch
-    		// requests from Jenkins.  
-    		if (s.isStarting == Boolean.TRUE) {
-    			scriptedCloud.Log(slaveComputer, listener, "Slave is already being launched");
-    			return;
-    		}
-
-    		disableLaunch();
-    		
-    		s.isStarting = Boolean.TRUE;
-    		s.isDisconnecting = Boolean.FALSE;
     		File f = new File(vs.getStartScriptFile());
     		CommandInterpreter shell = getCommandInterpreter(vs.getStartScriptFile());
     		scriptedCloud.Log("script file:" + vs.getStartScriptFile());
@@ -173,56 +152,46 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     		//shell.buildCommandLine(script);
     		listener.getLogger().println("running start script");
     		int r = 0;
-    		HashMap envMap = new HashMap();
+    		HashMap envMap = new HashMap();    		
+    		s.fillEnv(envMap);
     		envMap.put("SCVM_ACTION","start");
-    		envMap.put("SCVM_NAME", this.vmName);
-    		envMap.put("SCVM_SNAPNAME", this.snapName);
-    		envMap.put("SCVM_PLATFORM", this.vmPlatform);
-    		envMap.put("SCVM_EXTRAPARAMS", this.vmExtraParams);    		
-    		envMap.put("SCVM_GROUP", this.vmGroup);
-    		if (forceLaunch == Boolean.TRUE) {
-    			envMap.put("SCVM_FORCESTART", "yes");
-    		}
     		scriptedCloud.Log("env:" + envMap);
     		shell.buildCommandLine(script);
-    		//scriptedCloud.Log("launching:shell:" + shell.getContents());
-    		
     		r = root.createLauncher(listener).launch().cmds(shell.buildCommandLine(script))
-    		//.envs(Collections.singletonMap("LABEL","s"))
     		.envs(envMap)
     		.stdout(listener).pwd(root).join();
-    		if (r!=0)
+    		if (r!=0) {
+    			s.revertState();
     			throw new AbortException("The script failed:" + r + ", " + vs.getStartScriptFile());
+    		}
     		scriptedCloud.Log("script done:" + vs.getStartScriptFile());
-    		
     		//satti - enabling this:    		
-            if (delegate.isLaunchSupported()) {
-                // Delegate is going to do launch.
-            	scriptedCloud.Log("calling inbuilt launch");
-                try {
-                	scriptedCloud.Log("delegate:" + delegate);
-                	delegate.launch(slaveComputer, listener);
-                }
-                catch (SocketException e) {
-                	scriptedCloud.Log("Socket Exception in delegate.launch()");
-                }
-                catch (IOException e) {
-                	scriptedCloud.Log("IO Exception in delegate.launch()");
-                }
-            }
-            else
-            	scriptedCloud.Log("delegate launch not supported");                        
-            
-    		scriptedCloud.Log("launch exit:"+ vs.getStartScriptFile());
+    		if (delegate.isLaunchSupported()) {
+    			// Delegate is going to do launch.
+    			scriptedCloud.Log("calling inbuilt launch");
+    			scriptedCloud.Log("delegate:" + delegate);
+    			delegate.launch(slaveComputer, listener);
+    		}
+    		else
+    			scriptedCloud.Log("delegate launch not supported");                        
+
+    		scriptedCloud.Log(slaveComputer, listener, "launch done");
+    		s.setStarted();
+    		return;
+    	}
+    	catch (SocketException e) {
+    		scriptedCloud.Log("Socket Exception in delegate.launch()");
+    		s.revertState();
+    	}
+    	catch (IOException e) {
+    		scriptedCloud.Log("IO Exception in delegate.launch()");
+    		s.revertState();
     	} catch (Exception e) {    		
     		scriptedCloud.Log("launch error:"+ e);
+    		s.revertState();
     		throw new RuntimeException(e);            
     	}
-    	finally {
-    		s.isStarting = Boolean.FALSE;
-    	}
-		disableLaunch();
-
+    	s.revertState();
     }
 
 
@@ -244,13 +213,14 @@ public class scriptedCloudLauncher extends ComputerLauncher {
             TaskListener taskListener) {
     	
     	scriptedCloudSlaveComputer slaveComputer = (scriptedCloudSlaveComputer)s;
-    	scriptedCloud.Log("afterDisconnect ...., isDisconnecting=" + slaveComputer.isDisconnecting);
+    	scriptedCloud.Log(slaveComputer, taskListener, "afterDisconnect");
+    	scriptedCloud.Log(slaveComputer, taskListener, "Slave state: " + slaveComputer.getState());
     	//delegate.afterDisconnect(slaveComputer, taskListener);
-    	
-    	if (slaveComputer.isStarting == Boolean.TRUE) {
-    		scriptedCloud.Log("busy starting .. skipping");
-    		delegate.afterDisconnect(slaveComputer, taskListener);
-    		return;
+    	if (slaveComputer.starting() || slaveComputer.stopping() || slaveComputer.initialized()) {
+    		scriptedCloud.Log("Slave is not in stoppable state");
+    		if (delegate != NULL)
+    			delegate.afterDisconnect(slaveComputer, taskListener);
+    		return;    		
     	}
     	//if (disconnectCustomAction == Boolean.FALSE) {
     	//	scriptedCloud.Log("Not called from stopslave .. skipping");
@@ -263,11 +233,11 @@ public class scriptedCloudLauncher extends ComputerLauncher {
     	//	//delegate.afterDisconnect(slaveComputer, taskListener);
     	//	return;
     	//}
-        if (slaveComputer.isDisconnecting == Boolean.TRUE) {
+/*        if (slaveComputer.isDisconnecting == Boolean.TRUE) {
         	scriptedCloud.Log(slaveComputer, taskListener, "Already disconnecting on a separate thread");
         	//delegate.afterDisconnect(slaveComputer, taskListener);
             return;
-        }
+        }*/
         
         if (slaveComputer.isTemporarilyOffline()) {
         	scriptedCloud.Log(slaveComputer, taskListener, "Not disconnecting VM because it's not accepting tasks");
@@ -276,17 +246,13 @@ public class scriptedCloudLauncher extends ComputerLauncher {
         }
             
         try {
-        	slaveComputer.isDisconnecting = Boolean.TRUE;
+        	slaveComputer.setStopping();
             scriptedCloud.Log(slaveComputer, taskListener, "Running disconnect procedure...");            
             scriptedCloud.Log(slaveComputer, taskListener, "Shutting down Virtual Machine...");
             
             //*********************************
             HashMap envMap = new HashMap();
-    		envMap.put("SCVM_NAME", this.vmName);
-    		envMap.put("SCVM_SNAPNAME", this.snapName);
-    		envMap.put("SCVM_PLATFORM", this.vmPlatform);
-    		envMap.put("SCVM_GROUP", this.vmGroup);
-    		envMap.put("SCVM_EXTRAPARAMS", this.vmExtraParams);
+            slaveComputer.fillEnv(envMap);
         	if (idleAction == MACHINE_ACTION.SHUTDOWN) {
     	    	envMap.put("SCVM_ACTION","stop");
         	}
@@ -312,21 +278,25 @@ public class scriptedCloudLauncher extends ComputerLauncher {
             int r = root.createLauncher(taskListener).launch().cmds(shell.buildCommandLine(script))
                     .envs(envMap /*Collections.singletonMap("LABEL","s")*/)
                     .stdout(NULL).pwd(root).join();
-            if (r!=0)
-                throw new AbortException("The script failed:" + r);            
+            if (r!=0) {
+                slaveComputer.revertState();
+                throw new AbortException("The script failed:" + r);
+            }
             scriptedCloud.Log("script done:" + scriptToRun);
             scriptedCloud.Log("delegate afterdisconnect");
             delegate.afterDisconnect(slaveComputer, taskListener);
+            slaveComputer.setStopped();
+            scriptedCloud.Log(slaveComputer, taskListener, "afterdisconnect done");
+            return;
             //**********************************
         } catch (Throwable t) {
+        	slaveComputer.revertState();
         	scriptedCloud.Log(slaveComputer, taskListener, "Got an exception");
         	scriptedCloud.Log(slaveComputer, taskListener, t.toString());
         	scriptedCloud.Log(slaveComputer, taskListener, "Printed exception");
             taskListener.fatalError(t.getMessage(), t);
-        } finally {
-        	scriptedCloud.Log("finally setting isDisconnecting to FALSE");
-        	slaveComputer.isDisconnecting = Boolean.FALSE;
         }
+        slaveComputer.revertState();
     }
    	
     public ComputerLauncher getDelegate() {
@@ -347,14 +317,6 @@ public class scriptedCloudLauncher extends ComputerLauncher {
 
     public void setIdleAction(MACHINE_ACTION idleAction) {
         this.idleAction = idleAction;
-    }
-
-    public Boolean getforceLaunch() {
-        return forceLaunch;
-    }
-
-    public void setforceLaunch(Boolean forceLaunch) {
-        this.forceLaunch = forceLaunch;
     }
 
     public Integer getLimitedTestRunCount() {

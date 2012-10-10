@@ -85,10 +85,7 @@ public class scriptedCloudSlave extends Slave {
             throws FormException, IOException {
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString,
         		
-                new scriptedCloudLauncher(delegateLauncher, vsDescription
-                		,vmName, vmPlatform, vmGroup, snapName, vmExtraParams
-                		,forceLaunch, 
-                		idleOption /*, LimitedTestRunCount*/)
+                new scriptedCloudLauncher(delegateLauncher, vsDescription, vmName)
         
         		,retentionStrategy, nodeProperties);
         this.vsDescription = vsDescription;
@@ -143,7 +140,12 @@ public class scriptedCloudSlave extends Slave {
     @Override
     public Computer createComputer() {
     	scriptedCloud.Log("createComputer " + name + "\n");
-        return new scriptedCloudSlaveComputer(this);
+        return new scriptedCloudSlaveComputer(this
+                , this.vsDescription
+                ,  this.vmName,  this.vmPlatform,  this.vmGroup
+                ,  this.snapName,  this.vmExtraParams
+                ,  this.forceLaunch
+                ,  this.idleOption);
     }
         
     public boolean StartLimitedTestRun(Run r, TaskListener listener) {
