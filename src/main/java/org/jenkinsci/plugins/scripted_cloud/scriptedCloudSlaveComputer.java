@@ -44,6 +44,13 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     public Boolean isStarting = Boolean.FALSE;
     public Boolean isDisconnecting = Boolean.FALSE;
 
+	public enum MACHINE_ACTION {
+        SHUTDOWN,
+        REVERT,
+        RESET,
+        NOTHING
+    }
+
     public enum SC_SLAVE_STATE {
     	INITIAL, STARTING, STOPPING, STARTED, STOPPED, ERROR
     } 
@@ -52,15 +59,19 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     public SC_SLAVE_STATE prevState;
     
     private Boolean forceLaunch;
-    private String vsDescription;
+    private String vmDescription;
     private String vmName;
     private String vmPlatform;
     private String vmExtraParams;
     private String vmGroup;
     private String snapName;
+    private String idleActionString;
+    private MACHINE_ACTION idleAction;
+    
+    private boolean needed;
     
     public scriptedCloudSlaveComputer(Slave slave
-            , String vsDescription
+            , String vmDescription
             , String vmName, String vmPlatform, String vmGroup
             , String snapName, String extraParams
             , Boolean forceLaunch
@@ -71,12 +82,25 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     	state = SC_SLAVE_STATE.INITIAL;
     	prevState = state;
         this.forceLaunch = forceLaunch;
-        this.vsDescription = vsDescription;
+        this.vmDescription = vmDescription;
         this.vmName = vmName;
         this.vmPlatform = vmPlatform;
         this.vmExtraParams = extraParams;
         this.vmGroup = vmGroup;
-        this.snapName = snapName;        
+        this.snapName = snapName;    
+        this.idleActionString = idleOption;
+       
+        if ("Shutdown".equals(idleOption)) {
+            idleAction = MACHINE_ACTION.SHUTDOWN;
+        } else if ("Shutdown and Revert".equals(idleOption)) {
+            idleAction = MACHINE_ACTION.REVERT;
+        } else if ("Reset".equals(idleOption)) {
+            idleAction = MACHINE_ACTION.RESET;            
+        } else {
+            idleAction = MACHINE_ACTION.NOTHING;
+        }
+        
+        needed = false;
     }
     
     public void fillEnv(HashMap envMap) {
@@ -85,6 +109,20 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
 		envMap.put("SCVM_PLATFORM", this.vmPlatform);
 		envMap.put("SCVM_EXTRAPARAMS", this.vmExtraParams);    		
 		envMap.put("SCVM_GROUP", this.vmGroup);
+		switch(idleAction) {
+		case SHUTDOWN:
+			envMap.put("SCVM_STOPACTION", "shutdown");
+			break;
+		case REVERT:
+			envMap.put("SCVM_STOPACTION", "revert");
+			break;
+		case RESET:
+			envMap.put("SCVM_STOPACTION", "reset");
+			break;
+		case NOTHING:
+			envMap.put("SCVM_STOPACTION", "nothing");
+			break;
+		}		
 		if (forceLaunch == Boolean.TRUE) {
 			envMap.put("SCVM_FORCESTART", "yes");
 		}
@@ -97,6 +135,12 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     protected Future<?> _connect(boolean forceReconnect) {
         return super._connect(forceReconnect);
     }    
+    
+    public String toString() {
+    	return String.format("%s[state:%s, idleaction:%s] "
+    			,this.vmName , getState()
+    		    ,idleActionString);
+    }
     
     //============= set/get functions
     public void revertState() {
@@ -139,6 +183,17 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     	state = SC_SLAVE_STATE.STARTED;
     }
     
+    public boolean needed() {
+    	return needed;
+    }
+    
+    public void setNeeded() {
+    	needed = true;
+    }
+    
+    public void setNotNeeded() {
+    	needed = false;
+    }
     
     //member get/set
     public String getVmName() {
@@ -146,7 +201,7 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     }
 
     public String getVsDescription() {
-        return vsDescription;
+        return vmDescription;
     }
     
     public String getState() {
@@ -167,4 +222,7 @@ public class scriptedCloudSlaveComputer extends SlaveComputer {
     	return "Unknown";
     }
     
+    public boolean doNothing() {
+    	return idleAction == MACHINE_ACTION.NOTHING;
+    }
 }

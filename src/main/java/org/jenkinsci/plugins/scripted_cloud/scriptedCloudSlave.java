@@ -56,14 +56,14 @@ import org.kohsuke.stapler.QueryParameter;
  */
 public class scriptedCloudSlave extends Slave {
 
-    private final String vsDescription;
-    private final String vmName;
-    private final String snapName;
-    private final String vmPlatform;
-    private final String vmExtraParams;
-    private final String vmGroup;
-    private final String idleOption;
-    private final Boolean forceLaunch;    
+    private  String vsDescription;
+    private  String vmName;
+    private  String snapName;
+    private  String vmPlatform;
+    private  String vmExtraParams;
+    private  String vmGroup;
+    private  String idleOption;
+    private  Boolean forceLaunch;    
     
     private Integer LimitedTestRunCount = 0; // If limited test runs enabled, the number of tests to limit the slave too.
     private transient Integer NumberOfLimitedTestRuns = 0;
@@ -98,31 +98,49 @@ public class scriptedCloudSlave extends Slave {
         this.forceLaunch = forceLaunch;
         this.LimitedTestRunCount = 0; //Util.tryParseNumber(LimitedTestRunCount, 0).intValue();        
         this.NumberOfLimitedTestRuns = 0;
-        scriptedCloud.Log("<br>scriptedCloudSlave called\n");
+        scriptedCloud.Log("scriptedCloudSlave constructor");
     }
 
     public String getVmName() {
         return vmName;
     }
+    public void setVmName(String name) {
+        vmName = name;
+    }
 
     public String getVmPlatform() {
         return vmPlatform;
+    }
+    public void setVmPlatform(String name) {
+    	vmPlatform = name;
     }
 
     public String getVmExtraParams() {
         return vmExtraParams;
     }
+    public void setVmExtraParams(String name) {
+    	vmExtraParams = name;
+    }
 
     public String getVmGroup() {
         return vmGroup;
+    }
+    public void setVmGroup(String name) {
+    	vmGroup = name;
     }
 
     public String getVsDescription() {
         return vsDescription;
     }
+    public void setVsDescription(String name) {
+    	vsDescription = name;
+    }
 
     public String getSnapName() {
         return snapName;
+    }
+    public void setSnapName(String name) {
+    	snapName = name;
     }
 
     public Integer getLimitedTestRunCount() {
@@ -132,9 +150,15 @@ public class scriptedCloudSlave extends Slave {
     public String getIdleOption() {
         return idleOption;
     }
+    public void setIdleOption(String name) {
+    	idleOption = name;
+    }
     
     public Boolean getForceLaunch() {
         return forceLaunch;
+    }
+    public void setForceLaunch(Boolean name) {
+    	forceLaunch = name;
     }
 
     @Override
@@ -149,8 +173,9 @@ public class scriptedCloudSlave extends Slave {
     }
         
     public boolean StartLimitedTestRun(Run r, TaskListener listener) {
-        scriptedCloudLauncher c = (scriptedCloudLauncher)getLauncher();
-        c.enableLaunch();        
+    	scriptedCloud.Log("StartLimitedTestRun"); 
+    	scriptedCloudSlaveComputer s = (scriptedCloudSlaveComputer)r.getExecutor().getOwner();
+        s.setNeeded();   
         return true;
     }
 
@@ -161,6 +186,8 @@ public class scriptedCloudSlave extends Slave {
         scriptedCloud.Log("EndLimitedTestRun"); 
         scriptedCloudLauncher c = (scriptedCloudLauncher)getLauncher();
         c.stopSlave((scriptedCloudSlaveComputer)r.getExecutor().getOwner(), forced);
+        scriptedCloudSlaveComputer s = (scriptedCloudSlaveComputer)r.getExecutor().getOwner();
+        s.setNotNeeded();
         return ret;
     }
     
